@@ -4,7 +4,9 @@ import (
 	"blockchainparser/src/utils"
 	"database/sql"
 	"encoding/binary"
+	"fmt"
 	"os"
+	"strconv"
 
 	_ "github.com/lib/pq"
 )
@@ -27,6 +29,10 @@ var magicBytes = []byte{249, 190, 180, 217}
 //Nonce (4 bytes)
 //Transaction count (variable)
 
+//Things to do when limit is reached, or done.
+//1. count wallets
+//2. delete orphan blocks
+
 type Transaction struct {
 	version            int
 	transactionVersion int
@@ -45,21 +51,6 @@ type Input struct {
 
 type Output struct {
 }
-
-//---
-//Version (4 bytes)
-//Transaction version # (4 bytes)
-//# of inputs (variable)
-//Transaction Index (4 bytes) uint32
-//Script length (variable)
-//Script data (length bytes)
-//Sequence # (4 bytes) uint32 always 0xFFFFFFFF
-//Output count (variable)
-//Value (8 bytes) uint64
-//Script length (variable)
-//Output script (length bytes)
-//lock time (4 bytes) uint32 always 0
-//---
 
 /*
 Once we have consumed the final transaction, this
@@ -86,20 +77,33 @@ func Parse() {
 		panic(err)
 	}
 
-	file, err := os.Open("../blk00000.dat")
-	if err != nil {
-		panic(err)
-	}
-
-	var blocks int = 0
+	datFileNum := 0
 	for {
-		success, err := scrollToNextBlock(file)
+		fmt.Println("===Next block dat file num")
+		file, err := os.Open("./" + getBlockDatFileName(datFileNum))
+		// file, err := os.Open("./blk00000.dat")
 		if err != nil {
 			panic(err)
 		}
-		if success {
-			blocks++
-			parseNextBlock(file)
+
+		defer file.Close()
+
+		var blocks int = 0
+		for {
+			success, err := scrollToNextBlock(file)
+			if err != nil {
+				if err.Error() == "EOF" {
+					datFileNum++
+					break
+				} else {
+					panic(err)
+				}
+			}
+			if success {
+				fmt.Println("block #: " + strconv.Itoa(blocks))
+				blocks++
+				parseNextBlock(file)
+			}
 		}
 	}
 }
@@ -146,6 +150,21 @@ func parseNextBlock(file *os.File) error {
 	}
 
 	return nil
+}
+
+func getBlockDatFileName(count int) (name string) {
+	if count < 10 {
+		name = "0000" + strconv.Itoa(count)
+	} else if count < 100 {
+		name = "000" + strconv.Itoa(count)
+	} else if count < 1000 {
+		name = "00" + strconv.Itoa(count)
+	} else if count < 10000 {
+		name = "0" + strconv.Itoa(count)
+	} else {
+		name = strconv.Itoa(count)
+	}
+	return "blk" + name + ".dat"
 }
 
 func scrollToNextBlock(file *os.File) (bool, error) {

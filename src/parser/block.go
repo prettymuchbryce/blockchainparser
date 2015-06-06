@@ -23,8 +23,7 @@ type Block struct {
 
 //A block's hash is not included in the binary
 //data on disk. It needs to be computed from
-//some of the fields by doing the typical
-//double sha256
+//some of the fields by doing a sha256(sha256(fields))
 func (block *Block) ComputeHash() {
 	buffer := new(bytes.Buffer)
 	binary.Write(buffer, binary.LittleEndian, block.version)
@@ -58,7 +57,7 @@ func (block *Block) getBigEndianString(value [32]byte) string {
 
 func (block *Block) Save(db *sql.DB) error {
 	fmt.Println(block.getBigEndianString(block.hash))
-	rows, err := db.Exec(`INSERT INTO blocks(length, version, hash, previousBlockHash, merkleRoot, timestamp, difficulty, nonce, transactionCount)
+	_, err := db.Exec(`INSERT INTO blocks(length, version, hash, previousBlockHash, merkleRoot, timestamp, difficulty, nonce, transactionCount)
 	VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)`, block.length, block.version, block.getBigEndianString(block.hash), block.getBigEndianString(block.previousBlockHash), block.getBigEndianString(block.merkleRoot), block.timestamp, block.difficulty, block.nonce, block.transactionCount)
 
 	return err
