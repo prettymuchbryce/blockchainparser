@@ -7,16 +7,16 @@ import (
 	"io"
 )
 
-func GetVariableInteger(reader io.Reader) (value uint64, err error) {
+func GetVariableInteger(reader io.Reader) (value uint64, b []byte, err error) {
 	firstByte := make([]byte, 1)
 	_, err = reader.Read(firstByte)
 
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
 	if firstByte[0] < 253 {
-		return uint64(firstByte[0]), nil
+		return uint64(firstByte[0]), firstByte, nil
 	}
 
 	if firstByte[0] == 253 {
@@ -24,10 +24,12 @@ func GetVariableInteger(reader io.Reader) (value uint64, err error) {
 		_, err = reader.Read(twoBytes)
 
 		if err != nil {
-			return 0, err
+			return 0, nil, err
 		}
 
-		return binary.ReadUvarint(bytes.NewReader(twoBytes))
+		value, err = binary.ReadUvarint(bytes.NewReader(twoBytes))
+
+		return value, twoBytes, err
 	}
 
 	if firstByte[0] == 254 {
@@ -35,10 +37,12 @@ func GetVariableInteger(reader io.Reader) (value uint64, err error) {
 		_, err = reader.Read(fourBytes)
 
 		if err != nil {
-			return 0, err
+			return 0, nil, err
 		}
 
-		return binary.ReadUvarint(bytes.NewReader(fourBytes))
+		value, err = binary.ReadUvarint(bytes.NewReader(fourBytes))
+
+		return value, fourBytes, err
 	}
 
 	if firstByte[0] == 255 {
@@ -46,11 +50,13 @@ func GetVariableInteger(reader io.Reader) (value uint64, err error) {
 		_, err = reader.Read(eightBytes)
 
 		if err != nil {
-			return 0, err
+			return 0, nil, err
 		}
 
-		return binary.ReadUvarint(bytes.NewReader(eightBytes))
+		value, err = binary.ReadUvarint(bytes.NewReader(eightBytes))
+
+		return value, eightBytes, err
 	}
 
-	return 0, errors.New("Unexpected value for variable integer")
+	return 0, nil, errors.New("Unexpected value for variable integer")
 }

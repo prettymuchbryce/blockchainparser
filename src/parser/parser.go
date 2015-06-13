@@ -33,25 +33,6 @@ var magicBytes = []byte{249, 190, 180, 217}
 //1. count wallets
 //2. delete orphan blocks
 
-type Transaction struct {
-	version            int
-	transactionVersion int
-	inputCount         int
-	transactionIndex   int
-	inputScript        []byte
-	sequence           int
-	outputCount        int
-	value              int
-	outputScript       []byte
-	lockTime           int
-}
-
-type Input struct {
-}
-
-type Output struct {
-}
-
 /*
 Once we have consumed the final transaction, this
 brings us to the end of the logical block. However,
@@ -136,7 +117,7 @@ func parseNextBlock(file *os.File) error {
 
 	block.ComputeHash()
 
-	transactionCount, err := utils.GetVariableInteger(file)
+	transactionCount, _, err := utils.GetVariableInteger(file)
 	if err != nil {
 		return err
 	}
@@ -145,11 +126,112 @@ func parseNextBlock(file *os.File) error {
 
 	err = block.Save(db)
 
+	// for i := 0; i < transactionCount; i++ {
+	// 	err = parseNextTransaction(file)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+	value, err := getTransactionHash(file)
+
+	fmt.Println(value)
+
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// func parseNextTransaction(file *os.File) error {
+// 	transaction := New(Transaction)
+// 	binary.Read(file, binary.LittleEndian, &transaction.version)
+
+// 	inputCount, _, err := utils.GetVariableInteger(file)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	for i := 0; i < inputCount; i++ {
+// 		input := New(Input)
+
+// 	}
+// }
+
+func getTransactionHash(file *os.File) (value []byte, err error) {
+	//Transaction Version
+	value, err = readByte(file, value, 4)
+	if err != nil {
+		return nil, err
+	}
+
+	//Number of inputs
+	varInt, varIntBytes, err := utils.GetVariableInteger(file)
+	if err != nil {
+		return nil, err
+	}
+
+	value = append(value, varIntBytes...)
+
+	fmt.Println("What the heck inputs", varInt)
+
+	for i := 0; i < int(varInt); i++ {
+		//hash
+		value, err = readByte(file, value, 32)
+		if err != nil {
+			return nil, err
+		}
+
+		//index
+		value, err = readByte(file, value, 4)
+		if err != nil {
+			return nil, err
+		}
+
+		//Script length
+		varInt, varIntBytes, err := utils.GetVariableInteger(file)
+		if err != nil {
+			return nil, err
+		}
+
+		value = append(value, varIntBytes...)
+
+		//Script
+		value, err = readByte(file, value, int(varInt))
+		if err != nil {
+			return nil, err
+		}
+
+		//Sequence #
+		value, err = readByte(file, value, 4)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	//Number of outputs
+	varInt, varIntBytes, err = utils.GetVariableInteger(file)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := 0; i < int(varInt); i++ {
+
+	}
+
+	//value, err = readByte(file, value, count)
+	return value, nil
+}
+
+func readByte(file *os.File, buffer []byte, numBytes int) ([]byte, error) {
+	value := make([]byte, numBytes)
+	err := binary.Read(file, binary.LittleEndian, &value)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return append(buffer, value...), nil
 }
 
 func getBlockDatFileName(count int) (name string) {

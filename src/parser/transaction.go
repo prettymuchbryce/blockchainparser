@@ -3,6 +3,7 @@ package parser
 //---
 //Transaction version # (4 bytes)
 //# of inputs (variable)
+//  Hash
 //  Transaction Index (4 bytes) uint32
 //  Script length (variable)
 //  Script data (length bytes)

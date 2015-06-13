@@ -1,4 +1,4 @@
-For the bold and the brave, a golang program which parses the bitcoin blockchain into a postgresql database.
+A golang program which parses the bitcoin blockchain into a postgresql database.
 
 At the moment this program only parses Transactions, Blocks, and Wallets, however; it could be easily modified to do whatever you want and pull requests are welcome.
 
@@ -8,6 +8,7 @@ This program parses binary files on your harddrive. It won't auto-update, or be 
 
 If you're using Bitcoin QT, the .dat files can be located in these locations:
 
+```
 Linux:
 
 ~/.bitcoin/
@@ -19,7 +20,7 @@ MacOS:
 Windows:
 
 %APPDATA%\Bitcoin
-
+```
 Setup
 
 1. Install postgresql
