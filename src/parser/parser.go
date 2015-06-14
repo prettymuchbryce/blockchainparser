@@ -106,6 +106,7 @@ func connect() (err error) {
 }
 
 func parseNextBlock(file *os.File) error {
+	fmt.Println("----")
 	block := new(Block)
 	binary.Read(file, binary.LittleEndian, &block.length)
 	binary.Read(file, binary.LittleEndian, &block.version)
@@ -126,15 +127,15 @@ func parseNextBlock(file *os.File) error {
 
 	err = block.Save(db)
 
-	// for i := 0; i < transactionCount; i++ {
-	// 	err = parseNextTransaction(file)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-	value, err := getTransactionHash(file)
+	fmt.Println("What the heck transaction counts", transactionCount)
 
-	fmt.Println(value)
+	for i := uint64(0); i < transactionCount; i++ {
+		_, err := getTransactionHash(file)
+		if err != nil {
+			return err
+		}
+		//fmt.Println(value)
+	}
 
 	if err != nil {
 		return err
@@ -166,21 +167,26 @@ func getTransactionHash(file *os.File) (value []byte, err error) {
 	}
 
 	//Number of inputs
-	varInt, varIntBytes, err := utils.GetVariableInteger(file)
+	numInputs, varIntBytes, err := utils.GetVariableInteger(file)
 	if err != nil {
 		return nil, err
 	}
 
 	value = append(value, varIntBytes...)
 
-	fmt.Println("What the heck inputs", varInt)
+	fmt.Println("What the heck inputs", numInputs)
 
-	for i := 0; i < int(varInt); i++ {
+	for i := uint64(0); i < numInputs; i++ {
 		//hash
-		value, err = readByte(file, value, 32)
-		if err != nil {
-			return nil, err
-		}
+		// value, err = readByte(file, value, 32)
+		// if err != nil {
+		// 	return nil, err
+		// }
+
+		thash := make([]byte, 32)
+		binary.Read(file, binary.LittleEndian, &thash)
+
+		fmt.Println("Hash in input", utils.GetBigEndianString(thash))
 
 		//index
 		value, err = readByte(file, value, 4)
@@ -197,7 +203,7 @@ func getTransactionHash(file *os.File) (value []byte, err error) {
 		value = append(value, varIntBytes...)
 
 		//Script
-		value, err = readByte(file, value, int(varInt))
+		value, err = readByte(file, value, varInt)
 		if err != nil {
 			return nil, err
 		}
@@ -210,20 +216,50 @@ func getTransactionHash(file *os.File) (value []byte, err error) {
 	}
 
 	//Number of outputs
-	varInt, varIntBytes, err = utils.GetVariableInteger(file)
+	numOutputs, varIntBytes, err := utils.GetVariableInteger(file)
 	if err != nil {
 		return nil, err
 	}
 
-	for i := 0; i < int(varInt); i++ {
+	value = append(value, varIntBytes...)
+	fmt.Println("What the heck output?", numOutputs)
 
+	for i := uint64(0); i < numOutputs; i++ {
+		//Value (# of satoshis)
+		// value, err = readByte(file, value, 8)
+		// if err != nil {
+		// 	return nil, err
+		// }
+
+		var satoshis uint64
+		binary.Read(file, binary.LittleEndian, &satoshis)
+		fmt.Println("Satoshis in output", satoshis)
+
+		//output script length
+		varInt, varIntBytes, err := utils.GetVariableInteger(file)
+		if err != nil {
+			return nil, err
+		}
+
+		value = append(value, varIntBytes...)
+
+		//Output script
+		value, err = readByte(file, value, varInt)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	//value, err = readByte(file, value, count)
+	//Transaction lock time
+	value, err = readByte(file, value, 4)
+	if err != nil {
+		return nil, err
+	}
+
 	return value, nil
 }
 
-func readByte(file *os.File, buffer []byte, numBytes int) ([]byte, error) {
+func readByte(file *os.File, buffer []byte, numBytes uint64) ([]byte, error) {
 	value := make([]byte, numBytes)
 	err := binary.Read(file, binary.LittleEndian, &value)
 
