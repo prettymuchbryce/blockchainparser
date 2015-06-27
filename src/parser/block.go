@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"blockchainparser/src/utils"
 	"bytes"
 	"crypto/sha256"
 	"database/sql"
@@ -56,9 +57,9 @@ func (block *Block) getBigEndianString(value [32]byte) string {
 }
 
 func (block *Block) Save(db *sql.DB) error {
-	fmt.Println(block.getBigEndianString(block.hash))
+	fmt.Println(utils.GetBigEndianString(block.hash[:]))
 	_, err := db.Exec(`INSERT INTO blocks(length, version, hash, previousBlockHash, merkleRoot, timestamp, difficulty, nonce, transactionCount)
-	VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)`, block.length, block.version, block.getBigEndianString(block.hash), block.getBigEndianString(block.previousBlockHash), block.getBigEndianString(block.merkleRoot), block.timestamp, block.difficulty, block.nonce, block.transactionCount)
+	VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)`, block.length, block.version, utils.GetBigEndianString(block.hash[:]), utils.GetBigEndianString(block.previousBlockHash[:]), utils.GetBigEndianString(block.merkleRoot[:]), block.timestamp, block.difficulty, block.nonce, block.transactionCount)
 
 	return err
 }

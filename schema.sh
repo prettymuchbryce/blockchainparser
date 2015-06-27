@@ -21,14 +21,16 @@ psql -d blockchainparser -c "CREATE TABLE transactions (
 );"
 
 psql -d blockchainparser -c "CREATE TABLE inputs (
-    hash varchar(64) references transactions(hash),
+    transaction varchar(64) references transactions(hash),
+    hash varchar(64),
     index bigint NOT NULL,
     script bytea NOT NULL,
     sequence bigint NOT NULL
 );"
 
 psql -d blockchainparser -c "CREATE TABLE outputs (
-    hash varchar(64) references transactions(hash),
+    transaction varchar(64) references transactions(hash),
+    publicKey varchar(35),
     value varchar(64) NOT NULL,
     script bytea NOT NULL
 );"

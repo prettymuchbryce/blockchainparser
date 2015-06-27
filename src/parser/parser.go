@@ -2,6 +2,7 @@ package parser
 
 import (
 	"blockchainparser/src/utils"
+	"bytes"
 	"database/sql"
 	"encoding/binary"
 	"fmt"
@@ -12,41 +13,6 @@ import (
 )
 
 var magicBytes = []byte{249, 190, 180, 217}
-
-//Transactions table
-//Block table
-//Address Table (could be generated with the above)
-
-//Endianness ? Little?
-
-//magicID (4 bytes)
-//Block length (4 bytes) (# of bytes ?)
-//Version number (4 bytes)
-//Previous block Hash (32 bytes)
-//Merkle root (32 bytes)
-//Timestamp (4 bytes)
-//Difficulty (4 bytes)
-//Nonce (4 bytes)
-//Transaction count (variable)
-
-//Things to do when limit is reached, or done.
-//1. count wallets
-//2. delete orphan blocks
-
-/*
-Once we have consumed the final transaction, this
-brings us to the end of the logical block. However,
-and this is important to note, we will not
-necessarily bring us to the end of the physical
-block!  The 'block length' specified at the
-beginning of this block may actually go beyond the
-end of the last transaction which was consumed.
-That is why it is important that you read the entire
-block into memory rather than just reading each
-transaction and expecting the file pointer to be
-in the correct location for the next block.
-*/
-
 var db *sql.DB
 
 func Parse() {
@@ -83,7 +49,11 @@ func Parse() {
 			if success {
 				fmt.Println("block #: " + strconv.Itoa(blocks))
 				blocks++
-				parseNextBlock(file)
+				err := parseNextBlock(file)
+				if err != nil {
+					panic(err)
+				}
+				//os.Exit(0)
 			}
 		}
 	}
@@ -126,148 +96,185 @@ func parseNextBlock(file *os.File) error {
 	block.transactionCount = transactionCount
 
 	err = block.Save(db)
+	if err != nil {
+		return err
+	}
 
-	fmt.Println("What the heck transaction counts", transactionCount)
+	fmt.Println("transactionCount", transactionCount)
 
 	for i := uint64(0); i < transactionCount; i++ {
-		_, err := getTransactionHash(file)
+		transaction, err := parseNextTransaction(file)
 		if err != nil {
 			return err
 		}
-		//fmt.Println(value)
-	}
 
-	if err != nil {
-		return err
+		err = transaction.Save(db)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Transaction Inputs", transaction.inputs[0].hash)
+		//fmt.Println(value)
 	}
 
 	return nil
 }
 
-// func parseNextTransaction(file *os.File) error {
-// 	transaction := New(Transaction)
-// 	binary.Read(file, binary.LittleEndian, &transaction.version)
+//Parse the next transaction
+func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
+	transaction = new(Transaction)
+	var transactionBytes []byte
 
-// 	inputCount, _, err := utils.GetVariableInteger(file)
-// 	if err != nil {
-// 		return err
-// 	}
+	//Store TransactionBytes as we go along in addition to populating
+	//the transaction struct. We need to do this in order to compute
+	//the transaction hash at the end of this function.
 
-// 	for i := 0; i < inputCount; i++ {
-// 		input := New(Input)
-
-// 	}
-// }
-
-func getTransactionHash(file *os.File) (value []byte, err error) {
 	//Transaction Version
-	value, err = readByte(file, value, 4)
+	transactionBytes, versionBytes, err := readByte(file, transactionBytes, 4)
+	reader := bytes.NewReader(versionBytes)
+	binary.Read(reader, binary.LittleEndian, &transaction.version)
 	if err != nil {
-		return nil, err
+		return transaction, err
 	}
 
 	//Number of inputs
-	numInputs, varIntBytes, err := utils.GetVariableInteger(file)
+	numInputs, numInputsBytes, err := utils.GetVariableInteger(file)
 	if err != nil {
-		return nil, err
+		return transaction, err
 	}
 
-	value = append(value, varIntBytes...)
+	transactionBytes = append(transactionBytes, numInputsBytes...)
 
-	fmt.Println("What the heck inputs", numInputs)
-
+	fmt.Println("numInputs", numInputs)
 	for i := uint64(0); i < numInputs; i++ {
+		input := new(Input)
+		transaction.inputs = append(transaction.inputs, input)
+
 		//hash
-		// value, err = readByte(file, value, 32)
-		// if err != nil {
-		// 	return nil, err
-		// }
-
-		thash := make([]byte, 32)
-		binary.Read(file, binary.LittleEndian, &thash)
-
-		fmt.Println("Hash in input", utils.GetBigEndianString(thash))
+		var hashBytes []byte
+		transactionBytes, hashBytes, err = readByte(file, transactionBytes, 32)
+		reader := bytes.NewReader(hashBytes)
+		binary.Read(reader, binary.LittleEndian, &input.hash)
+		if err != nil {
+			return transaction, err
+		}
 
 		//index
-		value, err = readByte(file, value, 4)
+		var indexBytes []byte
+		transactionBytes, indexBytes, err = readByte(file, transactionBytes, 4)
+		reader = bytes.NewReader(indexBytes)
+		binary.Read(reader, binary.LittleEndian, &input.index)
 		if err != nil {
-			return nil, err
+			return transaction, err
 		}
 
 		//Script length
-		varInt, varIntBytes, err := utils.GetVariableInteger(file)
+		inputScriptLength, inputScriptLengthBytes, err := utils.GetVariableInteger(file)
 		if err != nil {
-			return nil, err
+			return transaction, err
 		}
 
-		value = append(value, varIntBytes...)
+		transactionBytes = append(transactionBytes, inputScriptLengthBytes...)
 
 		//Script
-		value, err = readByte(file, value, varInt)
+		var scriptBytes []byte
+		transactionBytes, scriptBytes, err = readByte(file, transactionBytes, inputScriptLength)
+		reader = bytes.NewReader(scriptBytes)
+		binary.Read(reader, binary.LittleEndian, &input.script)
 		if err != nil {
-			return nil, err
+			return transaction, err
 		}
 
 		//Sequence #
-		value, err = readByte(file, value, 4)
+		var sequenceBytes []byte
+		transactionBytes, sequenceBytes, err = readByte(file, transactionBytes, 4)
+		reader = bytes.NewReader(sequenceBytes)
+		binary.Read(reader, binary.LittleEndian, &input.sequence)
 		if err != nil {
-			return nil, err
+			return transaction, err
 		}
 	}
+
+	fmt.Println(transactionBytes)
 
 	//Number of outputs
-	numOutputs, varIntBytes, err := utils.GetVariableInteger(file)
+	numOutputs, numOutputsBytes, err := utils.GetVariableInteger(file)
 	if err != nil {
-		return nil, err
+		return transaction, err
 	}
 
-	value = append(value, varIntBytes...)
-	fmt.Println("What the heck output?", numOutputs)
+	fmt.Println("numOutputs", numOutputs)
+
+	transactionBytes = append(transactionBytes, numOutputsBytes...)
 
 	for i := uint64(0); i < numOutputs; i++ {
-		//Value (# of satoshis)
-		// value, err = readByte(file, value, 8)
-		// if err != nil {
-		// 	return nil, err
-		// }
+		output := new(Output)
+		transaction.outputs = append(transaction.outputs, output)
 
-		var satoshis uint64
-		binary.Read(file, binary.LittleEndian, &satoshis)
-		fmt.Println("Satoshis in output", satoshis)
+		//Value (# of satoshis)
+		var valueBytes []byte
+		transactionBytes, valueBytes, err = readByte(file, transactionBytes, 8)
+		reader = bytes.NewReader(valueBytes)
+		binary.Read(reader, binary.LittleEndian, &output.value)
+		if err != nil {
+			return transaction, err
+		}
 
 		//output script length
-		varInt, varIntBytes, err := utils.GetVariableInteger(file)
+		outputScriptLength, outputScriptLengthBytes, err := utils.GetVariableInteger(file)
 		if err != nil {
-			return nil, err
+			return transaction, err
 		}
 
-		value = append(value, varIntBytes...)
+		transactionBytes = append(transactionBytes, outputScriptLengthBytes...)
 
 		//Output script
-		value, err = readByte(file, value, varInt)
+		var scriptBytes []byte
+		transactionBytes, scriptBytes, err = readByte(file, transactionBytes, outputScriptLength)
+		reader = bytes.NewReader(scriptBytes)
+		binary.Read(reader, binary.LittleEndian, &output.script)
 		if err != nil {
-			return nil, err
+			return transaction, err
 		}
+		publicKey, err := utils.ExtractPublicKeyFromOutputScript(scriptBytes)
+		var publicKeyBytes [20]byte
+		copy(publicKeyBytes[:], publicKey[:])
+		if err != nil {
+			return transaction, err
+		}
+		output.publicKey = publicKeyBytes
 	}
 
 	//Transaction lock time
-	value, err = readByte(file, value, 4)
+	transactionBytes, lockTimeBytes, err := readByte(file, transactionBytes, 4)
+	reader = bytes.NewReader(lockTimeBytes)
+	binary.Read(reader, binary.LittleEndian, &transaction.lock)
 	if err != nil {
-		return nil, err
+		return transaction, err
 	}
 
-	return value, nil
+	//Calculate the transaction hash
+	dsha := utils.DoubleSha(transactionBytes)
+	var transactionHashBytes [32]byte
+	copy(transactionHashBytes[:], dsha[:])
+	transaction.hash = transactionHashBytes
+	fmt.Println(utils.GetBigEndianString(transaction.hash[:]))
+
+	return transaction, nil
 }
 
-func readByte(file *os.File, buffer []byte, numBytes uint64) ([]byte, error) {
+func readByte(file *os.File, buffer []byte, numBytes uint64) ([]byte, []byte, error) {
 	value := make([]byte, numBytes)
 	err := binary.Read(file, binary.LittleEndian, &value)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return append(buffer, value...), nil
+	result := append(buffer, value...)
+
+	fmt.Println(result)
+
+	return result, value, nil
 }
 
 func getBlockDatFileName(count int) (name string) {

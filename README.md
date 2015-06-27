@@ -34,6 +34,7 @@ Windows:
 #####Arguments
 
 -data The path to your .dat file directory
+-user Your postgresql database user
 -limit A block # limit for the parsing. Useful if you just want to try parsing the first n blocks to see how the data looks
 
 ####References
