@@ -5,12 +5,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"hellobitcoin/base58check"
 	"scriptcodes"
-
-	"github.com/prettymuchbryce/hellobitcoin/base58check"
 
 	"code.google.com/p/go.crypto/ripemd160"
 )
+
+const mainNetPublicKeyPrefix string = "00"
 
 //Returns a string of the big endian hex hash
 func GetBigEndianString(value []byte) string {
@@ -23,13 +25,12 @@ func GetBigEndianString(value []byte) string {
 	return hex.EncodeToString(b.Bytes())
 }
 
-func Convert20BytePublicKeyToAscii(key [20]byte) string {
-	mainNetPrefix := "00"
-	asciiKey := base58check.Encode(mainNetPrefix, key[:])
-	return asciiKey
+func ConvertPublicKeyToAscii(key [20]byte) string {
+	return base58check.Encode("00", key[:])
 }
 
 func ConvertLongPublicKeyToShortPublicKey(key []byte) (newKey []byte) {
+	fmt.Println("Key", hex.EncodeToString(key))
 	shaHash := sha256.New()
 	shaHash.Write(key)
 	shadPublicKeyBytes := shaHash.Sum(nil)
@@ -37,6 +38,8 @@ func ConvertLongPublicKeyToShortPublicKey(key []byte) (newKey []byte) {
 	ripeHash := ripemd160.New()
 	ripeHash.Write(shadPublicKeyBytes)
 	ripeHashedBytes := ripeHash.Sum(nil)
+
+	fmt.Println("ripehash", hex.EncodeToString(ripeHashedBytes))
 
 	return ripeHashedBytes
 }
@@ -48,7 +51,8 @@ func ExtractPublicKeyFromOutputScript(script []byte) (key []byte, err error) {
 			if script[0] != byte(65) || script[66] != scriptcodes.OP_CHECKSIG {
 				break
 			}
-			return ConvertLongPublicKeyToShortPublicKey(script[1:65]), nil
+			fmt.Println("herewego", len(script[1:66]))
+			return ConvertLongPublicKeyToShortPublicKey(script[1:66]), nil
 		}
 	} else if len(script) == 66 {
 		// 66 byte long output script.  Contains a 65 byte public key address.
@@ -56,7 +60,7 @@ func ExtractPublicKeyFromOutputScript(script []byte) (key []byte, err error) {
 			if script[65] != scriptcodes.OP_CHECKSIG {
 				break
 			}
-			return ConvertLongPublicKeyToShortPublicKey(script[0:64]), nil
+			return ConvertLongPublicKeyToShortPublicKey(script[0:65]), nil
 		}
 	}
 
@@ -71,7 +75,7 @@ func ExtractPublicKeyFromOutputScript(script []byte) (key []byte, err error) {
 				break
 			}
 
-			return script[3:24], nil
+			return script[3:23], nil
 		}
 	}
 
@@ -101,7 +105,7 @@ func ExtractPublicKeyFromOutputScript(script []byte) (key []byte, err error) {
 			continue
 		}
 
-		return script[i+3 : i+22], nil
+		return script[i+3 : i+23], nil
 	}
 	return nil, errors.New("key not found in script")
 }

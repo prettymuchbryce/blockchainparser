@@ -3,6 +3,7 @@ package parser
 import (
 	"blockchainparser/src/utils"
 	"database/sql"
+	"fmt"
 )
 
 //---
@@ -58,8 +59,9 @@ func (transaction *Transaction) Save(db *sql.DB) error {
 
 	for i := 0; i < len(transaction.outputs); i++ {
 		output := transaction.outputs[i]
+		fmt.Println(utils.ConvertPublicKeyToAscii(output.publicKey))
 		_, err = db.Exec(`INSERT INTO outputs(transaction, publicKey, value, script)
-		VALUES($1, $2, $3, $4)`, utils.GetBigEndianString(transaction.hash[:]), utils.Convert20BytePublicKeyToAscii(output.publicKey), output.value, output.script)
+		VALUES($1, $2, $3, $4)`, utils.GetBigEndianString(transaction.hash[:]), utils.ConvertPublicKeyToAscii(output.publicKey), output.value, output.script)
 		if err != nil {
 			return err
 		}

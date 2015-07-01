@@ -53,7 +53,7 @@ func Parse() {
 				if err != nil {
 					panic(err)
 				}
-				//os.Exit(0)
+				os.Exit(0)
 			}
 		}
 	}
