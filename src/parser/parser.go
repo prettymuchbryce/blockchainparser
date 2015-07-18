@@ -19,7 +19,7 @@ var transactionsSeen map[[32]byte]bool
 var lastBlockSeen [32]byte
 var blockHashToPreviousHash map[[32]byte][32]byte
 
-func Parse(dbuser string) {
+func Parse(dbuser string, path string) {
 	err := connect(dbuser)
 	defer db.Close()
 
@@ -33,7 +33,7 @@ func Parse(dbuser string) {
 	datFileNum := 0
 	for {
 		fmt.Println("===Next block dat file num")
-		file, err := os.Open("./" + getBlockDatFileName(datFileNum))
+		file, err := os.Open(path + getBlockDatFileName(datFileNum))
 		if err != nil {
 			deleteOrphanBlocks()
 			return
