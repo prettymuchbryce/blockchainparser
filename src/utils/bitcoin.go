@@ -30,7 +30,6 @@ func ConvertPublicKeyToAscii(key [20]byte) string {
 }
 
 func ConvertLongPublicKeyToShortPublicKey(key []byte) (newKey []byte) {
-	fmt.Println("Key", hex.EncodeToString(key))
 	shaHash := sha256.New()
 	shaHash.Write(key)
 	shadPublicKeyBytes := shaHash.Sum(nil)
@@ -38,8 +37,6 @@ func ConvertLongPublicKeyToShortPublicKey(key []byte) (newKey []byte) {
 	ripeHash := ripemd160.New()
 	ripeHash.Write(shadPublicKeyBytes)
 	ripeHashedBytes := ripeHash.Sum(nil)
-
-	fmt.Println("ripehash", hex.EncodeToString(ripeHashedBytes))
 
 	return ripeHashedBytes
 }
@@ -51,7 +48,6 @@ func ExtractPublicKeyFromOutputScript(script []byte) (key []byte, err error) {
 			if script[0] != byte(65) || script[66] != scriptcodes.OP_CHECKSIG {
 				break
 			}
-			fmt.Println("herewego", len(script[1:66]))
 			return ConvertLongPublicKeyToShortPublicKey(script[1:66]), nil
 		}
 	} else if len(script) == 66 {
@@ -64,7 +60,7 @@ func ExtractPublicKeyFromOutputScript(script []byte) (key []byte, err error) {
 		}
 	}
 
-	if len(script) > 25 {
+	if len(script) >= 25 {
 		// Script is 25 bytes long or more, contains a 20 byte public key hash address.
 		for {
 			if script[0] != scriptcodes.OP_DUP || script[1] != scriptcodes.OP_HASH160 {
@@ -107,6 +103,7 @@ func ExtractPublicKeyFromOutputScript(script []byte) (key []byte, err error) {
 
 		return script[i+3 : i+23], nil
 	}
+	fmt.Println(script)
 	return nil, errors.New("key not found in script")
 }
 

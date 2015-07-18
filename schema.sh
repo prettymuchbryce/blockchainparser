@@ -14,6 +14,8 @@ psql -d blockchainparser -c "CREATE TABLE blocks (
     transactionCount numeric(20) NOT NULL
 );"
 
+
+#TODO add block hash to transaction
 psql -d blockchainparser -c "CREATE TABLE transactions (
     hash varchar(64) primary key,
     version bigint NOT NULL,

@@ -10,6 +10,11 @@ import (
 	"fmt"
 )
 
+type BlockHashes struct {
+	hash         [32]byte
+	previousHash [32]byte
+}
+
 type Block struct {
 	length            uint32
 	version           uint32

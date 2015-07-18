@@ -27,9 +27,11 @@ func GetVariableInteger(reader io.Reader) (value uint64, b []byte, err error) {
 			return 0, nil, err
 		}
 
-		value, err = binary.ReadUvarint(bytes.NewReader(twoBytes))
+		var twoBytesValue uint16
+		twoBytesReader := bytes.NewReader(twoBytes)
+		binary.Read(twoBytesReader, binary.LittleEndian, &twoBytesValue)
 
-		return value, append(firstByte, twoBytes...), err
+		return uint64(twoBytesValue), append(firstByte, twoBytes...), err
 	}
 
 	if firstByte[0] == 254 {
@@ -40,9 +42,11 @@ func GetVariableInteger(reader io.Reader) (value uint64, b []byte, err error) {
 			return 0, nil, err
 		}
 
-		value, err = binary.ReadUvarint(bytes.NewReader(fourBytes))
+		var fourBytesValue uint32
+		fourBytesReader := bytes.NewReader(fourBytes)
+		binary.Read(fourBytesReader, binary.LittleEndian, &fourBytesValue)
 
-		return value, append(firstByte, fourBytes...), err
+		return uint64(fourBytesValue), append(firstByte, fourBytes...), err
 	}
 
 	if firstByte[0] == 255 {
@@ -54,7 +58,6 @@ func GetVariableInteger(reader io.Reader) (value uint64, b []byte, err error) {
 		}
 
 		value, err = binary.ReadUvarint(bytes.NewReader(eightBytes))
-
 		return value, append(firstByte, eightBytes...), err
 	}
 

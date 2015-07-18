@@ -2,8 +2,11 @@ package main
 
 import (
 	"blockchainparser/src/parser"
+	"flag"
 )
 
 func main() {
-	parser.Parse()
+	var dbuser = flag.String("user", "postgres", "postgres database user name")
+	flag.Parse()
+	parser.Parse(*dbuser)
 }
