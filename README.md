@@ -1,3 +1,22 @@
+# Work in progress
+# Here be dragons
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 >Parse the bitcoin blockchain into a postgresql database.
 
 ####Description 
