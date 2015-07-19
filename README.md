@@ -1,22 +1,21 @@
-# Work in progress
-# Here be dragons
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+### here be dragons
+### this is a work in progress
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
 >Parse the bitcoin blockchain into a postgresql database.
 
 ####Description 
