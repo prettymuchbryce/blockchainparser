@@ -1,7 +1,7 @@
 package main
 
 import (
-	"blockchainparser/src/parser"
+	"blockchainparser/parser"
 	"flag"
 )
 

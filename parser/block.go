@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"blockchainparser/src/utils"
+	"blockchainparser/utils"
 	"bytes"
 	"crypto/sha256"
 	"database/sql"

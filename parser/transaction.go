@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"blockchainparser/src/utils"
+	"blockchainparser/utils"
 	"database/sql"
 	"fmt"
 )
