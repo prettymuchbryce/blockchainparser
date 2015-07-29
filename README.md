@@ -1,25 +1,10 @@
-### here be dragons
-### this is a work in progress
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
 >Parse the bitcoin blockchain into a postgresql database.
 
+##Work in progress
+This tool is not complete, and is still a work in progress.
+
 ####Description 
-This program uses the Bitcoin QT .dat file format to parse the blockchain into a postgresql database for easier querying. This pogram parses Transactions, and Blocks into four postgresql tables called transactions, blocks, inputs, and outputs.
+This program uses the Bitcoin .dat file format to parse the blockchain into a postgresql database for easier querying. This program parses Transactions, and Blocks into four postgresql tables called transactions, blocks, inputs, and outputs.
 
 This program parses binary files on your harddrive. It won't auto-update, or be aware of new incoming transactions. You will have to re-run the program once those blocks have been added to your .dat files. In other words, this is for historical (non-realtime) data only.
 
@@ -44,19 +29,26 @@ Windows:
 ####Setup
 
 1. Install postgresql
-2. run schema.sh to setup the db and schema
+2. Run schema.sh to setup the db and schema
 3. Edit the configuration to specify the location of your .dat files
-4. compile and run main.go
+4. Compile and run main.go
+
+####TODO
+1. Parse P2SH transactions
+2. Parse Multisig transactions
+3. Create wallets table(?)
 
 ####Contributing
 Pull requests are welcome and encouraged
 
 #####Arguments
 ```
--data The path to your .dat file directory
+-data The path to your .dat file (blocks) directory
 -user Your postgresql database user
--limit A block # limit for the parsing. Useful if you just want to try parsing the first n blocks to see how the data looks
 ```
 
 ####References
 [How to parse the bitcoin blockchain](http://codesuppository.blogspot.com/2014/01/how-to-parse-bitcoin-blockchain.html)
+[Bitcoin wiki](http://bitcoin.it)
+[A survey of transaction types](http://www.quantabytes.com/articles/a-survey-of-bitcoin-transaction-types)
+[Blockchain.info](http://www.blockchain.info)

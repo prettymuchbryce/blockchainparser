@@ -57,8 +57,11 @@ func GetVariableInteger(reader io.Reader) (value uint64, b []byte, err error) {
 			return 0, nil, err
 		}
 
-		value, err = binary.ReadUvarint(bytes.NewReader(eightBytes))
-		return value, append(firstByte, eightBytes...), err
+		var eightBytesValue uint64
+		eightBytesReader := bytes.NewReader(eightBytes)
+		binary.Read(eightBytesReader, binary.LittleEndian, &eightBytesValue)
+
+		return uint64(eightBytesValue), append(firstByte, eightBytes...), err
 	}
 
 	return 0, nil, errors.New("Unexpected value for variable integer")

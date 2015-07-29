@@ -42,6 +42,9 @@ func ConvertLongPublicKeyToShortPublicKey(key []byte) (newKey []byte) {
 }
 
 func ExtractPublicKeyFromOutputScript(script []byte) (key []byte, err error) {
+	//remove first (length) byte
+	script = script[1:]
+
 	if len(script) == 67 {
 		//67 byte long output script containing a full ECDSA 65 byte public key address.
 		for {
@@ -58,6 +61,11 @@ func ExtractPublicKeyFromOutputScript(script []byte) (key []byte, err error) {
 			}
 			return ConvertLongPublicKeyToShortPublicKey(script[0:65]), nil
 		}
+	}
+
+	//P2PK
+	if len(script) == 33 && script[len(script)-1] == scriptcodes.OP_CHECKSIG {
+		return script[:len(script)-1], nil
 	}
 
 	if len(script) >= 25 {
