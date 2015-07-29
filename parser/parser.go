@@ -32,7 +32,7 @@ func Parse(dbuser string, path string) {
 	//Counter for dat files
 	datFileNum := 0
 	for {
-		fmt.Println("===Next block dat file num")
+		fmt.Println("===Next block dat file num" + dataFileNum)
 		file, err := os.Open(path + getBlockDatFileName(datFileNum))
 		if err != nil {
 			deleteOrphanBlocks()
@@ -255,7 +255,9 @@ func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
 		var publicKeyBytes [20]byte
 		copy(publicKeyBytes[:], publicKey[:])
 		if err != nil {
-			return transaction, err
+			fmt.Println("Error! Can't find public key in output script")
+			fmt.Println(err)
+			//return transaction, err
 		}
 		output.publicKey = publicKeyBytes
 	}
