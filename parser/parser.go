@@ -32,7 +32,7 @@ func Parse(dbuser string, path string) {
 	//Counter for dat files
 	datFileNum := 0
 	for {
-		fmt.Println("===Next block dat file num" + dataFileNum)
+		fmt.Println("===Next block dat file num" + datFileNum)
 		file, err := os.Open(path + getBlockDatFileName(datFileNum))
 		if err != nil {
 			deleteOrphanBlocks()
