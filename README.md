@@ -48,7 +48,7 @@ Pull requests are welcome and encouraged
 ```
 
 ####References
-[How to parse the bitcoin blockchain](http://codesuppository.blogspot.com/2014/01/how-to-parse-bitcoin-blockchain.html)
-[Bitcoin wiki](http://bitcoin.it)
-[A survey of transaction types](http://www.quantabytes.com/articles/a-survey-of-bitcoin-transaction-types)
-[Blockchain.info](http://www.blockchain.info)
+* [How to parse the bitcoin blockchain](http://codesuppository.blogspot.com/2014/01/how-to-parse-bitcoin-blockchain.html)
+* [Bitcoin wiki](http://bitcoin.it)
+* [A survey of transaction types](http://www.quantabytes.com/articles/a-survey-of-bitcoin-transaction-types)
+* [Blockchain.info](http://www.blockchain.info)
