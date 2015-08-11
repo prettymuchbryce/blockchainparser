@@ -8,85 +8,123 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	_ "github.com/lib/pq"
 )
 
-//Magic Bytes which denote the start of each block
+// Magic Bytes which denote the start of each block in the bitcoin protocol
 var magicBytes = []byte{249, 190, 180, 217}
-var db *sql.DB
+
+// A map of every transaction seen. Used to prevent parsing duplicate
+// transactions in a block.
 var transactionsSeen map[[32]byte]bool
+
+// Last block seen tracks the very last hash of the very last block
+// so that which know where to start iterating backwards for deleting orphan
+// blocks.
 var lastBlockSeen [32]byte
+
+// A map of every block hashe, to it's parent's block hash.
+// Used for deleting orphan blocks.
 var blockHashToPreviousHash map[[32]byte][32]byte
 
+var blockFinishChannel chan error
+
 func Parse(dbuser string, path string) {
-	err := connect(dbuser)
-	defer db.Close()
-
-	if err != nil {
-		panic(err)
-	}
-
 	blockHashToPreviousHash = make(map[[32]byte][32]byte)
+	blockFinishChannel = make(chan error)
 
-	//Counter for dat files
+	// Counter for dat files
 	datFileNum := 0
+	datFileMax := 0
 	for {
 		fmt.Println("===Next block dat file num" + strconv.Itoa(datFileNum))
-		if path[len(path)-1] != "/" {
-			path = append(path, "/")
+		if strings.LastIndex(path, "/") != len(path)-1 {
+			path = strings.Join([]string{path, "/"}, "")
 		}
 		file, err := os.Open(path + getBlockDatFileName(datFileNum))
 		if err != nil {
-			deleteOrphanBlocks()
-			return
-			//panic(err)
+			datFileMax = datFileNum
+			break
+			// deleteOrphanBlocks()
+			// return
 		}
 
-		defer file.Close()
+		datFileNum++
 
-		var blocks int = 0
-		transactionsSeen = make(map[[32]byte]bool)
-		for {
-			success, err := scrollToNextBlock(file)
+		go func(file *os.File) {
+			db, err := connect(dbuser)
 			if err != nil {
-				if err.Error() == "EOF" {
-					datFileNum++
-					break
-				} else {
-					panic(err)
-				}
+				panic(err)
 			}
-			if success {
-				fmt.Println("block #: " + strconv.Itoa(blocks))
-				blocks++
-				err := parseNextBlock(file)
+
+			defer db.Close()
+			defer file.Close()
+
+			var blocks int = 0
+			transactionsSeen = make(map[[32]byte]bool)
+			for {
+				success, err := scrollToNextBlock(file)
 				if err != nil {
-					panic(err)
+					blockFinishChannel <- err
+					break
+					// if err.Error() == "EOF" {
+					// 	break
+					// } else {
+					// 	panic(err)
+					// }
+				}
+				if success {
+					fmt.Println("block #: " + strconv.Itoa(blocks))
+					blocks++
+					err := parseNextBlock(file, db)
+					if err != nil {
+						blockFinishChannel <- err
+						break
+						// panic(err)
+					}
 				}
 			}
+		}(file)
+	}
+
+	datFileFinished := 0
+	for {
+		err := <-blockFinishChannel
+		if err.Error() == "EOF" {
+			datFileFinished++
+		} else {
+			panic(err)
+		}
+
+		if datFileFinished == datFileMax {
+			// TODO delete orphan blocks
+			fmt.Println("Finished parsing!")
+			break
 		}
 	}
+
 }
 
-func connect(dbuser string) (err error) {
+func connect(dbuser string) (db *sql.DB, err error) {
 	db, err = sql.Open("postgres",
 		"user="+dbuser+" dbname=blockchainparser connect_timeout=5 sslmode=disable")
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = db.Ping()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return db, nil
 }
 
-//Parse the next block in the chain
-func parseNextBlock(file *os.File) error {
+// Parse the next block in the chain
+func parseNextBlock(file *os.File, db *sql.DB) error {
 	fmt.Println("----")
 	block := new(Block)
 	binary.Read(file, binary.LittleEndian, &block.length)
@@ -117,15 +155,15 @@ func parseNextBlock(file *os.File) error {
 	fmt.Println("transactionCount", transactionCount)
 
 	for i := uint64(0); i < transactionCount; i++ {
-		transaction, err := parseNextTransaction(file)
+		transaction, err := parseNextTransaction(file, db)
 		if err != nil {
 			return err
 		}
 
-		//There are a few cases early in the blockchain
-		//where the same transaction is in multiple blocks.
-		//The bitcoin network only cares about the first, and
-		//the second is ignored.
+		// There are a few cases early in the blockchain
+		// where the same transaction is in multiple blocks.
+		// The bitcoin network only cares about the first, and
+		// the subsequent transactions are ignored.
 		if transactionsSeen[transaction.hash] {
 			continue
 		}
@@ -140,16 +178,16 @@ func parseNextBlock(file *os.File) error {
 	return nil
 }
 
-//Parse the next transaction
-func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
+// Parse the next transaction
+func parseNextTransaction(file *os.File, db *sql.DB) (transaction *Transaction, err error) {
 	transaction = new(Transaction)
 	var transactionBytes []byte
 
-	//Store TransactionBytes as we go along in addition to populating
-	//the transaction struct. We need to do this in order to compute
-	//the transaction hash at the end of this function.
+	// Store TransactionBytes as we go along in addition to populating
+	// the transaction struct. We need to do this in order to compute
+	// the transaction hash at the end of this function.
 
-	//Transaction Version
+	// Transaction Version
 	transactionBytes, versionBytes, err := readByte(file, transactionBytes, 4)
 	reader := bytes.NewReader(versionBytes)
 	binary.Read(reader, binary.LittleEndian, &transaction.version)
@@ -157,7 +195,7 @@ func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
 		return transaction, err
 	}
 
-	//Number of inputs
+	// Number of inputs
 	numInputs, numInputsBytes, err := utils.GetVariableInteger(file)
 	if err != nil {
 		return transaction, err
@@ -170,7 +208,7 @@ func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
 		input := new(Input)
 		transaction.inputs = append(transaction.inputs, input)
 
-		//hash
+		// hash
 		var hashBytes []byte
 		transactionBytes, hashBytes, err = readByte(file, transactionBytes, 32)
 		reader := bytes.NewReader(hashBytes)
@@ -179,7 +217,7 @@ func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
 			return transaction, err
 		}
 
-		//index
+		// index
 		var indexBytes []byte
 		transactionBytes, indexBytes, err = readByte(file, transactionBytes, 4)
 		reader = bytes.NewReader(indexBytes)
@@ -188,7 +226,7 @@ func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
 			return transaction, err
 		}
 
-		//Script length
+		// Script length
 		inputScriptLength, inputScriptLengthBytes, err := utils.GetVariableInteger(file)
 		if err != nil {
 			return transaction, err
@@ -196,7 +234,7 @@ func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
 
 		transactionBytes = append(transactionBytes, inputScriptLengthBytes...)
 
-		//Script
+		// Script
 		var scriptBytes []byte
 		transactionBytes, scriptBytes, err = readByte(file, transactionBytes, inputScriptLength)
 		reader = bytes.NewReader(scriptBytes)
@@ -205,7 +243,7 @@ func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
 			return transaction, err
 		}
 
-		//Sequence #
+		// Sequence #
 		var sequenceBytes []byte
 		transactionBytes, sequenceBytes, err = readByte(file, transactionBytes, 4)
 		reader = bytes.NewReader(sequenceBytes)
@@ -215,7 +253,7 @@ func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
 		}
 	}
 
-	//Number of outputs
+	// Number of outputs
 	numOutputs, numOutputsBytes, err := utils.GetVariableInteger(file)
 	if err != nil {
 		return transaction, err
@@ -229,7 +267,7 @@ func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
 		output := new(Output)
 		transaction.outputs = append(transaction.outputs, output)
 
-		//Value (# of satoshis)
+		// Value (# of satoshis)
 		var valueBytes []byte
 		transactionBytes, valueBytes, err = readByte(file, transactionBytes, 8)
 		reader = bytes.NewReader(valueBytes)
@@ -238,7 +276,7 @@ func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
 			return transaction, err
 		}
 
-		//output script length
+		// output script length
 		outputScriptLength, outputScriptLengthBytes, err := utils.GetVariableInteger(file)
 		if err != nil {
 			return transaction, err
@@ -246,7 +284,7 @@ func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
 
 		transactionBytes = append(transactionBytes, outputScriptLengthBytes...)
 
-		//Output script
+		// Output script
 		var scriptBytes []byte
 		transactionBytes, scriptBytes, err = readByte(file, transactionBytes, outputScriptLength)
 		reader = bytes.NewReader(scriptBytes)
@@ -265,7 +303,7 @@ func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
 		output.publicKey = publicKeyBytes
 	}
 
-	//Transaction lock time
+	// Transaction lock time
 	transactionBytes, lockTimeBytes, err := readByte(file, transactionBytes, 4)
 	reader = bytes.NewReader(lockTimeBytes)
 	binary.Read(reader, binary.LittleEndian, &transaction.lock)
@@ -273,7 +311,7 @@ func parseNextTransaction(file *os.File) (transaction *Transaction, err error) {
 		return transaction, err
 	}
 
-	//Calculate the transaction hash
+	// Calculate the transaction hash
 	dsha := utils.DoubleSha(transactionBytes)
 	var transactionHashBytes [32]byte
 	copy(transactionHashBytes[:], dsha[:])

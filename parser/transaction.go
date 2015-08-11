@@ -21,6 +21,14 @@ import (
 //lock time (4 bytes) uint32 always 0
 //---
 
+const (
+	transactionTypeP2SH = "P2SH"
+	transactionTypeP2PK = "P2PK"
+	transactionTypeP2PKH = "P2PKH"
+	transactionTypeMultiSig = "MULTI_SIG"
+	transactionTypeInvalid = "INVALID"
+)
+
 type Transaction struct {
 	version uint32
 	inputs  []*Input

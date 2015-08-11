@@ -46,6 +46,7 @@ func ExtractPublicKeyFromOutputScript(script []byte) (key []byte, err error) {
 	script = script[1:]
 
 	if len(script) == 67 {
+		//P2PK uncompressed
 		//67 byte long output script containing a full ECDSA 65 byte public key address.
 		for {
 			if script[0] != byte(65) || script[66] != scriptcodes.OP_CHECKSIG {
@@ -54,6 +55,7 @@ func ExtractPublicKeyFromOutputScript(script []byte) (key []byte, err error) {
 			return ConvertLongPublicKeyToShortPublicKey(script[1:66]), nil
 		}
 	} else if len(script) == 66 {
+		//P2PK uncompressed
 		// 66 byte long output script.  Contains a 65 byte public key address.
 		for {
 			if script[65] != scriptcodes.OP_CHECKSIG {
@@ -63,7 +65,7 @@ func ExtractPublicKeyFromOutputScript(script []byte) (key []byte, err error) {
 		}
 	}
 
-	//P2PK
+	//P2PK compressed
 	if len(script) == 33 && script[len(script)-1] == scriptcodes.OP_CHECKSIG {
 		return script[:len(script)-1], nil
 	}
